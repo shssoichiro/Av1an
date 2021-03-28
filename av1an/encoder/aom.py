@@ -31,7 +31,7 @@ class Aom(Encoder):
     def compose_2_pass(self, a: Project, c: Chunk, output: str) -> MPCommands:
         return [
             CommandPair(Encoder.compose_ffmpeg_pipe(a), [
-                'aomenc', '--passes=2', '--pass=1', *a.video_params,
+                'aomenc', '--passes=2', '--pass=1', *a.video_params, '--disable-kf',
                 f'--fpf={c.fpf}.log', '-o', os.devnull, '-'
             ]),
             CommandPair(Encoder.compose_ffmpeg_pipe(a), [
