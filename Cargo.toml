@@ -29,3 +29,7 @@ av1an-core = { path = "av1an-core", version = "0.1.0" }
 
 [workspace]
 members = ["av1an-core", "av1an-cli"]
+
+[patch.crates-io]
+av-scenechange = { git = "https://github.com/rust-av/av-scenechange", branch = "hybrid-sc" }
+rav1e = { git = "https://github.com/shssoichiro/rav1e", branch = "hybrid-sc" }

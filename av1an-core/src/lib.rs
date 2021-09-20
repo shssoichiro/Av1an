@@ -101,10 +101,8 @@ pub enum SplitMethod {
 pub enum ScenecutMethod {
   #[strum(serialize = "fast")]
   Fast,
-  #[strum(serialize = "medium")]
-  Medium,
-  #[strum(serialize = "slow")]
-  Slow,
+  #[strum(serialize = "standard")]
+  Standard,
 }
 
 #[derive(
