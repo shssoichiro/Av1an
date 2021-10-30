@@ -4,6 +4,9 @@ use crate::{
 };
 use std::{fs::File, io::Write, path::Path, sync::mpsc::Sender};
 
+use nix::sched::{sched_setaffinity, CpuSet};
+use nix::unistd::Pid;
+
 pub struct Broker<'a> {
   pub chunk_queue: Vec<Chunk>,
   pub project: &'a EncodeArgs,
@@ -64,6 +67,11 @@ impl<'a> Broker<'a> {
   }
 
   fn encode_chunk(&self, chunk: &mut Chunk, worker_id: usize) -> Result<(), String> {
+    let mut cpu_set = CpuSet::new();
+    cpu_set.set(2 * worker_id).unwrap();
+    cpu_set.set(2 * worker_id + 1).unwrap();
+    sched_setaffinity(Pid::from_raw(0), &cpu_set).unwrap();
+
     let st_time = Instant::now();
 
     info!("Enc: {}, {} fr", chunk.index, chunk.frames);

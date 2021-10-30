@@ -204,6 +204,7 @@ dependencies = [
  "indicatif",
  "itertools",
  "log",
+ "nix",
  "num_cpus",
  "once_cell",
  "paste",

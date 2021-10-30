@@ -40,6 +40,7 @@ av-scenechange = "0.7.0"
 y4m = "0.7.0"
 thiserror = "1.0.30"
 paste = "1.0.5"
+nix = "0.23.0"
 
 [dependencies.ffmpeg-next]
 version = "4.4.0"
