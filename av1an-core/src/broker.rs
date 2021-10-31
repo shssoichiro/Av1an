@@ -67,9 +67,25 @@ impl<'a> Broker<'a> {
   }
 
   fn encode_chunk(&self, chunk: &mut Chunk, worker_id: usize) -> Result<(), String> {
+    // We assign in a round-robin fashion. Some cores may be shared if we have
+    // a number of workers that is not divisible by the number of cores.
+    //
+    // Examples:
+    // 8 workers, 8 cores
+    // [1][2][3][4][5][6][7][8]
+    // 8 workers, 16 cores
+    // [1][1][2][2][3][3][4][4][5][5][6][6][7][7][8][8]
+    // 12 workers, 16 cores
+    // [1+9][1+9][2+10][2+10][3+11][3+11][4+12][4+12][5][5][6][6][7][7][8][8]
+    // 16 workers, 8 cores
+    // [1+9][2+10][3+11][4+12][5+13][6+14][7+15][8+16]
+    let cores_per_worker = (num_cpus::get() as f32 / self.project.workers as f32).ceil() as usize;
     let mut cpu_set = CpuSet::new();
-    cpu_set.set(2 * worker_id).unwrap();
-    cpu_set.set(2 * worker_id + 1).unwrap();
+    let start = worker_id * cores_per_worker;
+    let end = start + cores_per_worker;
+    for i in start..end {
+      cpu_set.set(i % self.project.workers).unwrap();
+    }
     sched_setaffinity(Pid::from_raw(0), &cpu_set).unwrap();
 
     let st_time = Instant::now();
