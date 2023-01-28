@@ -17,7 +17,10 @@ WORKDIR /tmp/Av1an
 
 FROM build-base AS planner
 
-COPY . .
+COPY ./Cargo.toml /
+COPY ./Cargo.lock /
+COPY ./av1an-core /
+COPY ./av1an /
 RUN cargo chef prepare
 
 
@@ -35,7 +38,10 @@ RUN git clone https://github.com/xiph/rav1e && \
     cd .. && rm -rf ./rav1e
 
 # Build av1an
-COPY . /tmp/Av1an
+COPY ./Cargo.toml /tmp/Av1an
+COPY ./Cargo.lock /tmp/Av1an
+COPY ./av1an-core /tmp/Av1an
+COPY ./av1an /tmp/Av1an
 
 RUN cargo build --release && \
     mv ./target/release/av1an /usr/local/bin && \
