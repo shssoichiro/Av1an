@@ -5,12 +5,17 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, bail};
+use av_data::pixel::{
+  ChromaLocation, ColorPrimaries, FromPrimitive, MatrixCoefficients, TransferCharacteristic,
+  YUVRange,
+};
 use once_cell::sync::Lazy;
 use path_abs::PathAbs;
 use vapoursynth::prelude::*;
 use vapoursynth::video_info::VideoInfo;
 
 use super::ChunkMethod;
+use crate::colorimetry::Colorimetry;
 use crate::util::to_absolute_path;
 
 static VAPOURSYNTH_PLUGINS: Lazy<HashSet<String>> = Lazy::new(|| {
@@ -327,8 +332,7 @@ pub fn resolution(source: &Path, vspipe_args_map: OwnedMap) -> anyhow::Result<(u
   get_resolution(&environment)
 }
 
-/// Transfer characteristics as specified in ITU-T H.265 Table E.4.
-pub fn transfer_characteristics(source: &Path, vspipe_args_map: OwnedMap) -> anyhow::Result<u8> {
+pub fn colorimetry(source: &Path, vspipe_args_map: OwnedMap) -> anyhow::Result<Colorimetry> {
   // Create a new VSScript environment.
   let mut environment = Environment::new().unwrap();
 
@@ -340,8 +344,39 @@ pub fn transfer_characteristics(source: &Path, vspipe_args_map: OwnedMap) -> any
   environment
     .eval_file(source, EvalFlags::SetWorkingDir)
     .unwrap();
-
-  get_transfer(&environment)
+  let (node, _) = environment.get_output(0)?;
+  let frame = node.get_frame(0)?;
+  let props = frame.props();
+  Ok(Colorimetry {
+    range: match props.get_int("_ColorRange") {
+      Ok(0) => YUVRange::Full,
+      _ => YUVRange::Limited,
+    },
+    primaries: props
+      .get_int("_Primaries")
+      .map_or(ColorPrimaries::Unspecified, |val| {
+        ColorPrimaries::from_i64(val).unwrap_or(ColorPrimaries::Unspecified)
+      }),
+    matrix: props
+      .get_int("_Matrix")
+      .map_or(MatrixCoefficients::Unspecified, |val| {
+        MatrixCoefficients::from_i64(val).unwrap_or(MatrixCoefficients::Unspecified)
+      }),
+    transfer: props
+      .get_int("_Transfer")
+      .map_or(TransferCharacteristic::Unspecified, |val| {
+        TransferCharacteristic::from_i64(val).unwrap_or(TransferCharacteristic::Unspecified)
+      }),
+    chroma_location: match props.get_int("_ChromaLocation") {
+      Ok(0) => ChromaLocation::Left,
+      Ok(1) => ChromaLocation::Center,
+      Ok(2) => ChromaLocation::TopLeft,
+      Ok(3) => ChromaLocation::Top,
+      Ok(4) => ChromaLocation::BottomLeft,
+      Ok(5) => ChromaLocation::Bottom,
+      _ => ChromaLocation::Unspecified,
+    },
+  })
 }
 
 pub fn pixel_format(source: &Path, vspipe_args_map: OwnedMap) -> anyhow::Result<String> {

@@ -32,12 +32,11 @@ use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::thread::available_parallelism;
 use std::time::Instant;
 
-use ::ffmpeg::color::TransferCharacteristic;
 use ::vapoursynth::api::API;
 use ::vapoursynth::map::OwnedMap;
 use anyhow::{bail, Context};
-use av1_grain::TransferFunction;
 use chunk::Chunk;
+use colorimetry::Colorimetry;
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -48,6 +47,7 @@ use crate::progress_bar::finish_progress_bar;
 
 pub mod broker;
 pub mod chunk;
+pub mod colorimetry;
 pub mod concat;
 pub mod context;
 pub mod encoder;
@@ -169,51 +169,14 @@ impl Input {
     })
   }
 
-  fn transfer_function(&self) -> anyhow::Result<TransferFunction> {
+  pub fn colorimetry(&self) -> anyhow::Result<Colorimetry> {
     const FAIL_MSG: &str = "Failed to get transfer characteristics for input video";
-    Ok(match self {
+    match self {
       Input::VapourSynth { path, .. } => {
-        match crate::vapoursynth::transfer_characteristics(path, self.as_vspipe_args_map()?)
-          .map_err(|_| anyhow::anyhow!(FAIL_MSG))?
-        {
-          16 => TransferFunction::SMPTE2084,
-          _ => TransferFunction::BT1886,
-        }
+        crate::vapoursynth::colorimetry(path, self.as_vspipe_args_map()?)
       }
-      Input::Video { path } => {
-        match crate::ffmpeg::transfer_characteristics(path)
-          .map_err(|_| anyhow::anyhow!(FAIL_MSG))?
-        {
-          TransferCharacteristic::SMPTE2084 => TransferFunction::SMPTE2084,
-          _ => TransferFunction::BT1886,
-        }
-      }
-    })
-  }
-
-  pub fn transfer_function_params_adjusted(
-    &self,
-    enc_params: &[String],
-  ) -> anyhow::Result<TransferFunction> {
-    if enc_params.iter().any(|p| {
-      let p = p.to_ascii_lowercase();
-      p == "pq" || p.ends_with("=pq") || p.ends_with("smpte2084")
-    }) {
-      return Ok(TransferFunction::SMPTE2084);
+      Input::Video { path } => crate::ffmpeg::colorimetry(path),
     }
-    if enc_params.iter().any(|p| {
-      let p = p.to_ascii_lowercase();
-      // If the user specified an SDR transfer characteristic, assume they want to encode to SDR.
-      p.ends_with("bt709")
-        || p.ends_with("bt.709")
-        || p.ends_with("bt601")
-        || p.ends_with("bt.601")
-        || p.contains("smpte240")
-        || p.contains("smpte170")
-    }) {
-      return Ok(TransferFunction::BT1886);
-    }
-    self.transfer_function()
   }
 
   /// Calculates tiles from resolution

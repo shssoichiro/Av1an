@@ -254,6 +254,7 @@ dependencies = [
  "ansi_term",
  "anyhow",
  "arrayvec",
+ "av-data",
  "av-format",
  "av-ivf",
  "av-scenechange",
